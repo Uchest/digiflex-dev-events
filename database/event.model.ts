@@ -103,38 +103,36 @@ const EventSchema = new Schema<IEvent>(
 );
 
 // Pre-save hook: Generate slug, validate and normalize date/time
-EventSchema.pre('save', function (next) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+EventSchema.pre('save', async function () {
   // Generate slug from title if title has changed or slug doesn't exist
   if (this.isModified('title') || !this.slug) {
     this.slug = this.title
       .toLowerCase()
       .trim()
-      .replace(/[^\w\s-]/g, '') // Remove special characters
-      .replace(/\s+/g, '-') // Replace spaces with hyphens
-      .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
-      .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '');
   }
 
-  // Validate and normalize date to ISO format (YYYY-MM-DD)
+  // Validate and normalize date
   if (this.isModified('date')) {
     const dateObj = new Date(this.date);
     if (isNaN(dateObj.getTime())) {
-      return next(new Error('Invalid date format. Please provide a valid date.'));
+      throw new Error('Invalid date format. Please provide a valid date.');
     }
-    // Store in ISO format (YYYY-MM-DD)
     this.date = dateObj.toISOString().split('T')[0];
   }
 
-  // Normalize time format to HH:MM (24-hour format)
+  // Normalize time format
   if (this.isModified('time')) {
     const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
     if (!timeRegex.test(this.time.trim())) {
-      return next(new Error('Invalid time format. Use HH:MM (24-hour format).'));
+      throw new Error('Invalid time format. Use HH:MM (24-hour format).');
     }
     this.time = this.time.trim();
   }
-
-  next();
 });
 
 // Create unique index on slug for faster lookups and uniqueness enforcement

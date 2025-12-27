@@ -1,69 +1,30 @@
-import { Schema, model, models, Document, Types } from 'mongoose';
+import mongoose from 'mongoose';
 
-// TypeScript interface for Booking document
-export interface IBooking extends Document {
-  eventId: Types.ObjectId;
-  email: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-const BookingSchema = new Schema<IBooking>(
+const BookingSchema = new mongoose.Schema(
   {
     eventId: {
-      type: Schema.Types.ObjectId,
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
       ref: 'Event',
-      required: [true, 'Event ID is required'],
+    },
+    slug: {
+      type: String,
+      required: true,
     },
     email: {
       type: String,
-      required: [true, 'Email is required'],
-      trim: true,
+      required: true,
       lowercase: true,
-      validate: {
-        validator: (v: string) => {
-          // RFC 5322 compliant email validation
-          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          return emailRegex.test(v);
-        },
-        message: 'Please provide a valid email address',
-      },
+      trim: true,
     },
   },
-  {
-    timestamps: true, // Automatically manage createdAt and updatedAt
-  }
+  { timestamps: true }
 );
 
-// Pre-save hook: Verify that the referenced event exists
-BookingSchema.pre('save', async function (next) {
-  // Only validate eventId if it's new or modified
-  if (this.isNew || this.isModified('eventId')) {
-    try {
-      // Dynamically import Event model to avoid circular dependencies
-      const Event = models.Event || (await import('./event.model')).default;
-      
-      const eventExists = await Event.findById(this.eventId);
-      
-      if (!eventExists) {
-        return next(new Error(`Event with ID ${this.eventId} does not exist`));
-      }
-    } catch (error) {
-      return next(
-        error instanceof Error 
-          ? error 
-          : new Error('Failed to validate event reference')
-      );
-    }
-  }
-
-  next();
+// ✅ VALID middleware (no next, no arrow)
+BookingSchema.pre('save', async function () {
+  this.email = this.email.toLowerCase();
 });
 
-// Create index on eventId for faster queries (e.g., finding all bookings for an event)
-BookingSchema.index({ eventId: 1 });
-
-// Use existing model if available (prevents recompilation in development)
-const Booking = models.Booking || model<IBooking>('Booking', BookingSchema);
-
-export default Booking;
+export default mongoose.models.Booking ||
+  mongoose.model('Booking', BookingSchema);
